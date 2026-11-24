@@ -1,0 +1,342 @@
+const IG = 'https://www.instagram.com/witty.fig';
+const HEART = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+
+// Ticket palettes: [paper, paper 2, accent, ink]. Add your own here.
+const PALETTES = [
+  { name: 'Peach fizz',     c: ['#FFD9C7', '#FFB5C5', '#E8505B', '#3B2A35'] },
+  { name: 'Matcha milk',    c: ['#E4EFD0', '#BFDDB0', '#3F7D58', '#23362B'] },
+  { name: 'Blueberry soda', c: ['#D6E4FF', '#B8B6F5', '#5B4FD1', '#1E1B4B'] },
+  { name: 'Butter toast',   c: ['#FFF1B8', '#FFD27A', '#D9730D', '#3D2A14'] },
+  { name: 'Lilac dream',    c: ['#EBDDFB', '#F7B7E0', '#A23CB5', '#331A40'] },
+  { name: 'Sea glass',      c: ['#D3F2EE', '#9ADBD6', '#0E7C86', '#12333A'] },
+  { name: 'Tomato soup',    c: ['#FF7A5C', '#FFB36B', '#FFF6E6', '#3A1410'] },
+  { name: 'Midnight ink',   c: ['#1F2347', '#4B3A8C', '#FFC857', '#FFF4E0'] }
+];
+
+const STYLES = {
+  stub:     { name: 'Concert',       W: 960, H: 400, R: 22 },
+  boarding: { name: 'Boarding pass', W: 960, H: 400, R: 26 },
+  admit:    { name: 'Admit one',     W: 600, H: 840, R: 24 },
+  raffle:   { name: 'Raffle',        W: 960, H: 300, R: 16 },
+  golden:   { name: 'Golden',        W: 900, H: 540, R: 26 },
+  cinema:   { name: 'Cinema',        W: 900, H: 380, R: 18 },
+  train:    { name: 'Train',         W: 460, H: 900, R: 20 }
+};
+
+const COPY = {
+  stub:     { kicker: 'Live in concert',   title: 'Midnight Picnic', sub: 'an evening of soft guitars and fairy lights', date: 'Sat 14 June, 7:30 pm', place: 'Willow Park Bandstand', seat: 'Row C, seat 12', tag: 'Non-transferable' },
+  boarding: { kicker: 'Flight 204',        title: 'Lisbon',          sub: 'one-way to somewhere warm',                   date: '3 September',         place: 'Gate 7',                seat: '12A', tag: 'Non-negotiable' },
+  admit:    { kicker: 'The grand opening', title: 'Admit one',       sub: 'to the best afternoon of your year',          date: 'Sunday, 2 pm',        place: 'The Old Mill',          seat: 'Bring a friend', tag: 'Irrevocable' },
+  raffle:   { kicker: 'Grand prize draw',  title: 'Lucky You',       sub: 'one ticket, infinite possibility',            date: 'Fri at dusk',         place: 'Town fair',             seat: 'Prize: a pony?', tag: 'Indefinite validity' },
+  golden:   { kicker: 'You found it',      title: 'Golden Ticket',   sub: 'a tour of the chocolate river awaits',        date: 'At midnight',         place: 'The secret door',       seat: 'Bring snacks', tag: 'Unconditional' },
+  cinema:   { kicker: 'Now showing',       title: 'The Long Nap',    sub: 'a feature presentation in soft focus',        date: 'Tonight, 9 pm',       place: 'Screen 3',              seat: 'Row F, seat 8', tag: 'Non-transferable' },
+  train:    { kicker: 'Night express',     title: 'Paris to Rome',   sub: 'window seat, blanket, and one good book',     date: '12 October',          place: 'Platform 9',            seat: 'Car 4, seat 21', tag: 'Lasts indefinitely' }
+};
+
+const FIELDS = ['kicker', 'title', 'sub', 'date', 'place', 'seat', 'tag'];
+const TAGS = ['Irrevocable', 'Non-negotiable', 'Unconditional', 'Lasts indefinitely', 'Indefinite validity', 'Non-transferable'];
+const FILLS = ['solid', 'fade', 'diagonal', 'glow'];
+const F = { serif: 'Fraunces, Georgia, serif', hand: 'Caveat, cursive', mono: '"Space Mono", monospace', rye: 'Rye, Fraunces, serif' };
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const newNo = () => Math.floor(Math.random() * 900000) + 100000;
+const startPal = Math.floor(Math.random() * PALETTES.length); // a different plain colour every visit
+const state = { style: 'stub', fill: 'solid', label: 'seat', pal: startPal, touched: new Set(), no: newNo(), colors: [...PALETTES[startPal].c], text: { ...COPY.stub } };
+
+const cv = $('#cv'), g = cv.getContext('2d');
+let P = {}, T = {}, cuts = [], R = 20, W = 0, H = 0, QR = null;
+
+/* ---------- colour helpers ---------- */
+function lum(h) {
+  const [r, gg, b] = [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+  return .2126 * r + .7152 * gg + .0722 * b;
+}
+const ratio = (a, b) => (Math.max(lum(a), lum(b)) + .05) / (Math.min(lum(a), lum(b)) + .05);
+function readable(bgs, prefer) {
+  const worst = c => Math.min(...bgs.map(b => ratio(c, b)));
+  if (worst(prefer) >= 4.5) return prefer;
+  return worst('#1f1a24') >= worst('#ffffff') ? '#1f1a24' : '#ffffff';
+}
+const rgba = (h, a) => `rgba(${[1, 3, 5].map(i => parseInt(h.substr(i, 2), 16)).join(',')},${a})`;
+
+/* ---------- canvas helpers ---------- */
+const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+const font = (w, s, f, it) => { g.font = `${it ? 'italic ' : ''}${w} ${s}px ${f}`; };
+function fit(str, w, size, wt, f, it, min = 18) {
+  let s = size; font(wt, s, f, it);
+  while (g.measureText(str).width > w && s > min) { s -= 2; font(wt, s, f, it); }
+}
+function text(str, x, y, al = 'left', col) { g.textAlign = al; g.fillStyle = col || P.ink; g.fillText(str, x, y); }
+function wrap(str, w, max) {
+  const out = []; let l = '';
+  for (const wd of str.split(' ')) {
+    const t = l ? l + ' ' + wd : wd;
+    if (g.measureText(t).width > w && l) { out.push(l); l = wd; } else l = t;
+  }
+  out.push(l); return out.slice(0, max);
+}
+function para(str, x, y, w, o = {}) {
+  const s = o.s || 36; font(o.wt || 700, s, o.f || F.hand, o.it);
+  wrap(str, w, o.n || 2).forEach((l, i) => text(l, x, y + i * s * 1.15, o.al || 'left'));
+}
+function pill(str, x, y, h, s, f = F.hand, center, maxW) {
+  font(700, s, f); let w = g.measureText(str).width + h;
+  while (maxW && w > maxW && s > 16) { s -= 1; font(700, s, f); w = g.measureText(str).width + h; }
+  if (center) x = x - w / 2;
+  g.fillStyle = P.acc; rr(x, y, w, h, h / 2); g.fill();
+  text(str, x + w / 2, y + h * .7, 'center', P.on);
+}
+function dash(x1, y1, x2, y2, a = .5) {
+  g.save(); g.setLineDash([10, 9]); g.lineWidth = 3; g.strokeStyle = rgba(P.ink, a);
+  g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.restore();
+}
+function dashBox(i) {
+  g.save(); g.setLineDash([10, 9]); g.lineWidth = 3; g.strokeStyle = rgba(P.ink, .35);
+  rr(i, i, W - 2 * i, H - 2 * i, 12); g.stroke(); g.restore();
+}
+function tint(x, y, w, h) {
+  g.save(); rr(0, 0, W, H, R); g.clip(); g.fillStyle = rgba(P.ink, .08); g.fillRect(x, y, w, h); g.restore();
+}
+function meta(x, y, ws, f, al = 'left', ls = 26, vs = 28) {
+  let cx = x;
+  [['when', T.date], ['where', T.place], [state.label, T.seat]].forEach(([l, v], i) => {
+    const tx = al === 'center' ? cx + ws[i] / 2 : cx;
+    font(500, ls, F.hand); text(l, tx, y, al, rgba(P.ink, .72));
+    fit(v, ws[i] - 14, vs, f === F.mono ? 400 : 600, f, 0, 16); text(v, tx, y + vs + 6, al);
+    cx += ws[i];
+  });
+}
+const serial = (x, y, al = 'center') => { font(400, 20, F.mono); text('No. ' + state.no, x, y, al, rgba(P.ink, .8)); };
+
+function stamp(x, y, maxW, ang = -5, right) {
+  if (!T.tag) return;
+  const t = T.tag.toUpperCase();
+  if ('letterSpacing' in g) g.letterSpacing = '2px';
+  fit(t, maxW - 44, 24, 700, F.mono, 0, 12);
+  const w = g.measureText(t).width + 44, h = 48, cx = right ? x - w / 2 : x;
+  g.save(); g.translate(cx, y); g.rotate(ang * Math.PI / 180);
+  g.strokeStyle = rgba(P.ink, .85); g.lineWidth = 3; rr(-w / 2, -h / 2, w, h, 8); g.stroke();
+  g.lineWidth = 1.5; rr(-w / 2 + 6, -h / 2 + 6, w - 12, h - 12, 4); g.stroke();
+  text(t, 0, 8, 'center', rgba(P.ink, .9)); g.restore();
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+}
+
+/* ---------- scannable QR with a pixel heart in the middle ---------- */
+function makeQR() {
+  try { const q = qrcode(0, 'H'); q.addData(IG); q.make(); QR = q; } catch (e) { QR = null; }
+}
+function qr(cx, cy, size) {
+  const card = '#FFFDF9', dark = '#3A2A45', n = QR ? QR.getModuleCount() : 33, pad = 2, cell = size / (n + pad * 2);
+  const x0 = cx - size / 2, y0 = cy - size / 2, h0 = Math.floor((n - 7) / 2);
+  g.fillStyle = card; rr(x0 - 4, y0 - 4, size + 8, size + 8, 10); g.fill();
+  if (QR) {
+    g.fillStyle = dark;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const inHeart = r >= h0 && r < h0 + 7 && c >= h0 && c < h0 + 7;
+      if (!inHeart && QR.isDark(r, c)) g.fillRect(x0 + (pad + c) * cell, y0 + (pad + r) * cell, cell + .5, cell + .5);
+    }
+  }
+  const hx = x0 + (pad + h0) * cell, hy = y0 + (pad + h0) * cell;
+  g.fillStyle = card; g.fillRect(hx, hy, 7 * cell, 7 * cell);
+  g.fillStyle = ratio(P.acc, card) >= 3 ? P.acc : '#B8325B';
+  HEART.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === 'X') g.fillRect(hx + c * cell, hy + (r + .5) * cell, cell + .5, cell + .5); }));
+}
+
+/* ---------- the seven tickets ---------- */
+const DRAW = {
+  stub() {
+    const X = 690, C = (X + W) / 2;
+    tint(X, 0, W - X, H); dashBox(14);
+    pill(T.kicker, 56, 48, 42, 28, F.hand, false, 330);
+    fit(T.title, X - 110, 84, 800, F.serif); text(T.title, 56, 178);
+    para(T.sub, 56, 224, X - 110, { s: 38 });
+    meta(56, 320, [190, 210, 190], F.serif);
+    dash(X, 30, X, H - 30); cuts.push([X, 0, 26], [X, H, 26]);
+    font(700, 46, F.hand); text('Admit one', C, 92, 'center');
+    qr(C, 214, 150); serial(C, 346);
+    stamp(X - 26, 58, 260, -4, true);
+  },
+  boarding() {
+    const X = 700, C = (X + W) / 2;
+    tint(X, 0, W - X, H);
+    g.save(); rr(0, 0, W, H, R); g.clip(); g.fillStyle = P.acc; g.fillRect(0, 0, W, 72); g.restore();
+    font(700, 24, F.mono); if ('letterSpacing' in g) g.letterSpacing = '6px';
+    text('BOARDING PASS', 48, 46, 'left', P.on); text('\u2708', W - 48, 46, 'right', P.on);
+    if ('letterSpacing' in g) g.letterSpacing = '0px';
+    pill(T.kicker, 48, 98, 38, 22, F.mono, false, 350);
+    fit(T.title.toUpperCase(), X - 96, 76, 700, F.mono); text(T.title.toUpperCase(), 48, 210);
+    para(T.sub, 48, 252, X - 96, { s: 24, wt: 400, f: F.mono, n: 2 });
+    meta(48, 328, [200, 230, 150], F.mono, 'left', 24, 24);
+    dash(X, 90, X, H - 24); cuts.push([X, 0, 26], [X, H, 26]);
+    font(400, 22, F.mono); text('ADMIT ONE', C, 124, 'center');
+    qr(C, 226, 150); serial(C, 350);
+    stamp(X - 26, 116, 260, -3, true);
+  },
+  admit() {
+    const th = 200, Y = H - th;
+    tint(0, Y, W, th);
+    g.save(); g.strokeStyle = rgba(P.ink, .6); g.lineWidth = 4; rr(22, 22, W - 44, Y - 40, 10); g.stroke();
+    g.lineWidth = 1.5; rr(33, 33, W - 66, Y - 62, 6); g.stroke(); g.restore();
+    pill(T.kicker, W / 2, 78, 48, 32, F.hand, true);
+    fit(T.title, W - 130, 130, 400, F.rye); text(T.title, W / 2, 270, 'center');
+    para(T.sub, W / 2, 346, W - 150, { s: 34, f: F.serif, wt: 600, it: 1, al: 'center' });
+    meta(60, 470, [160, 160, 160], F.serif, 'center', 28, 28);
+    dash(30, Y, W - 30, Y); cuts.push([0, Y, 28], [W, Y, 28]);
+    font(700, 58, F.hand); text('Admit one', 56, Y + th / 2 + 18);
+    qr(W - 150, Y + th / 2, 150);
+    stamp(W / 2, 568, 400, -4);
+  },
+  raffle() {
+    const X1 = 190, X2 = 780;
+    tint(0, 0, X1, H); tint(X2, 0, W - X2, H); dashBox(10);
+    dash(X1, 28, X1, H - 28); dash(X2, 28, X2, H - 28);
+    cuts.push([X1, 0, 22], [X1, H, 22], [X2, 0, 22], [X2, H, 22]);
+    font(700, 38, F.hand); text('No.', X1 / 2, 96, 'center');
+    const n = String(state.no); fit(n, X1 - 36, 64, 400, F.rye); text(n, X1 / 2, 166, 'center');
+    font(700, 30, F.hand); text('keep this half', X1 / 2, 240, 'center', rgba(P.ink, .8));
+    pill(T.kicker, X1 + 40, 40, 38, 26, F.hand, false, 220);
+    fit(T.title, X2 - X1 - 80, 78, 400, F.rye); text(T.title, X1 + 40, 154);
+    para(T.sub, X1 + 40, 198, X2 - X1 - 80, { s: 34, n: 1 });
+    const line = [T.date, T.place, T.seat].filter(Boolean).join('  \u2022  ');
+    fit(line, X2 - X1 - 80, 26, 500, F.serif); text(line, X1 + 40, 262);
+    qr((X2 + W) / 2, H / 2, 150);
+    stamp(X2 - 36, 58, 280, -4, true);
+  },
+  golden() {
+    g.save(); rr(0, 0, W, H, R); g.clip();
+    const sh = g.createLinearGradient(0, 0, W, H);
+    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(.38, 'rgba(255,255,255,.4)'); sh.addColorStop(.5, 'rgba(255,255,255,0)'); sh.addColorStop(.75, 'rgba(255,255,255,.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sh; g.fillRect(0, 0, W, H); g.restore();
+    g.save(); g.strokeStyle = P.acc; g.lineWidth = 7; rr(24, 24, W - 48, H - 48, 14); g.stroke();
+    g.strokeStyle = rgba(P.ink, .55); g.lineWidth = 2; rr(38, 38, W - 76, H - 76, 8); g.stroke(); g.restore();
+    [[38, 38], [W - 38, 38], [38, H - 38], [W - 38, H - 38]].forEach(([x, y]) => { g.save(); g.translate(x, y); g.rotate(Math.PI / 4); g.fillStyle = P.acc; g.fillRect(-9, -9, 18, 18); g.restore(); });
+    cuts.push([0, H / 2, 36], [W, H / 2, 36]);
+    font(700, 42, F.hand); text('\u2726  ' + T.kicker + '  \u2726', W / 2, 112, 'center');
+    fit(T.title, W - 180, 112, 600, F.serif, 1); text(T.title, W / 2, 212, 'center');
+    para(T.sub, W / 2, 272, W - 220, { s: 40, al: 'center' });
+    meta(75, 352, [250, 250, 250], F.serif, 'center', 28, 28);
+    qr(W / 2, 446, 124);
+    stamp(190, 440, 280, -6);
+  },
+  cinema() {
+    const X = 660, C = (X + W) / 2;
+    tint(X, 0, W - X, H);
+    g.save(); rr(0, 0, W, H, R); g.clip(); g.fillStyle = P.acc; g.fillRect(0, 0, 84, H); g.restore();
+    g.save(); g.translate(54, H / 2); g.rotate(-Math.PI / 2); font(700, 30, F.mono);
+    if ('letterSpacing' in g) g.letterSpacing = '8px';
+    text(T.kicker.toUpperCase(), 0, 0, 'center', P.on); g.restore();
+    if ('letterSpacing' in g) g.letterSpacing = '0px';
+    fit(T.title, X - 150, 80, 800, F.serif); text(T.title, 118, 150);
+    para(T.sub, 118, 202, X - 150, { s: 38 });
+    meta(118, 300, [170, 190, 150], F.mono, 'left', 26, 24);
+    dash(X, 30, X, H - 30); cuts.push([X, 0, 26], [X, H, 26]);
+    font(700, 46, F.hand); text('Admit one', C, 80, 'center');
+    qr(C, 200, 150); serial(C, 326);
+    stamp(X - 30, 50, 300, -4, true);
+  },
+  train() {
+    g.save(); rr(0, 0, W, H, R); g.clip(); g.fillStyle = P.acc; g.fillRect(0, 0, W, 150); g.restore();
+    font(700, 26, F.mono); text(T.kicker.toUpperCase(), 40, 70, 'left', P.on);
+    font(400, 20, F.mono); text('No. ' + state.no, 40, 108, 'left', P.on);
+    fit(T.title, W - 80, 56, 700, F.mono); text(T.title, 40, 238);
+    para(T.sub, 40, 292, W - 80, { s: 38, n: 3 });
+    [['when', T.date], ['where', T.place], [state.label, T.seat]].forEach(([l, v], i) => {
+      const y = 480 + i * 74;
+      font(500, 30, F.hand); text(l, 40, y, 'left', rgba(P.ink, .72));
+      fit(v, 250, 26, 400, F.mono, 0, 14); text(v, W - 40, y, 'right');
+      g.save(); g.setLineDash([2, 7]); g.lineWidth = 2; g.strokeStyle = rgba(P.ink, .4); g.beginPath(); g.moveTo(40, y + 20); g.lineTo(W - 40, y + 20); g.stroke(); g.restore();
+    });
+    const Y = 710; tint(0, Y, W, H - Y); dash(30, Y, W - 30, Y); cuts.push([0, Y, 24], [W, Y, 24]);
+    qr(W / 2, Y + 95, 150);
+    stamp(W / 2, 421, 320, -3);
+  }
+};
+
+/* ---------- render ---------- */
+function makeFill(a, b) {
+  if (state.fill === 'solid') return a;
+  let f;
+  if (state.fill === 'glow') { f = g.createRadialGradient(W * .25, H * .2, 0, W * .25, H * .2, Math.max(W, H) * .85); f.addColorStop(0, b); f.addColorStop(1, a); return f; }
+  f = state.fill === 'fade' ? g.createLinearGradient(0, 0, 0, H) : g.createLinearGradient(0, 0, W, H);
+  f.addColorStop(0, a); f.addColorStop(1, b); return f;
+}
+function draw(sc = 2) {
+  const S = STYLES[state.style]; W = S.W; H = S.H; R = S.R;
+  cv.width = W * sc; cv.height = H * sc;
+  g.setTransform(sc, 0, 0, sc, 0, 0); g.clearRect(0, 0, W, H);
+  const [c1, c2, c3, c4] = state.colors, ink = readable([c1, c2], c4);
+  P = { ink, acc: c3, on: readable([c3], ink) }; T = state.text; cuts = [];
+  g.textBaseline = 'alphabetic'; g.fillStyle = makeFill(c1, c2); rr(0, 0, W, H, R); g.fill();
+  DRAW[state.style]();
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
+  cuts.forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
+  g.globalCompositeOperation = 'source-over';
+  cv.setAttribute('aria-label', `${S.name} ticket: ${T.title}, ${T.date}, ${T.place}`);
+  $('#hang').style.width = `min(100%, ${Math.round(W * .7)}px)`;
+}
+function ui() {
+  $$('#styles button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === state.style));
+  $$('#fills button').forEach(b => b.setAttribute('aria-pressed', b.dataset.fill === state.fill));
+  $$('.swatch').forEach((s, i) => s.setAttribute('aria-pressed', i === state.pal));
+  $$('#seatToggle button').forEach(b => b.setAttribute('aria-pressed', b.dataset.l === state.label));
+  $('#seatLabel').textContent = state.label === 'note' ? 'Note' : 'Seat';
+  $$('#tags button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === state.text.tag));
+}
+function sync() {
+  FIELDS.forEach(f => { document.querySelector(`[data-f="${f}"]`).value = state.text[f]; });
+  $$('[data-c]').forEach(i => { i.value = state.colors[i.dataset.c]; });
+}
+function pop() { const h = $('#hang'); h.classList.remove('pop'); void h.offsetWidth; h.classList.add('pop'); }
+const refresh = () => { draw(); ui(); };
+function setPal(i) { state.pal = i; state.colors = [...PALETTES[i].c]; }
+const defSeat = s => (state.label === 'note' ? 'Bring snacks' : COPY[s].seat);
+function setStyle(s) {
+  state.style = s;
+  FIELDS.forEach(f => { if (!state.touched.has(f)) state.text[f] = COPY[s][f]; });
+  if (!state.touched.has('seat')) state.text.seat = defSeat(s);
+  sync(); refresh(); pop();
+}
+
+/* ---------- wire up ---------- */
+document.querySelectorAll('.px').forEach(el => {
+  el.innerHTML = '<svg viewBox="0 0 7 6" shape-rendering="crispEdges" aria-hidden="true">' +
+    HEART.map((r, y) => [...r].map((c, x) => c === 'X' ? `<rect x="${x}" y="${y}" width="1" height="1"/>` : '').join('')).join('') + '</svg>';
+});
+Object.entries(STYLES).forEach(([k, s]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.dataset.s = k; b.textContent = s.name;
+  b.addEventListener('click', () => setStyle(k)); $('#styles').appendChild(b);
+});
+['None', ...TAGS].forEach(t => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.dataset.t = t === 'None' ? '' : t;
+  b.addEventListener('click', () => { state.touched.add('tag'); state.text.tag = b.dataset.t; sync(); refresh(); });
+  $('#tags').appendChild(b);
+});
+PALETTES.forEach((p, i) => {
+  const b = document.createElement('button'), [a, bb, c, d] = p.c;
+  b.type = 'button'; b.className = 'swatch'; b.title = p.name; b.setAttribute('aria-label', p.name);
+  b.style.background = `linear-gradient(135deg, ${a} 25%, ${bb} 25% 50%, ${c} 50% 75%, ${d} 75%)`;
+  b.addEventListener('click', () => { setPal(i); sync(); refresh(); }); $('#swatches').appendChild(b);
+});
+$$('#fills button').forEach(b => b.addEventListener('click', () => { state.fill = b.dataset.fill; refresh(); }));
+$$('[data-f]').forEach(i => i.addEventListener('input', () => { state.touched.add(i.dataset.f); state.text[i.dataset.f] = i.value; refresh(); }));
+$$('[data-c]').forEach(i => i.addEventListener('input', () => { state.colors[i.dataset.c] = i.value; state.pal = -1; refresh(); }));
+$('#save').addEventListener('click', () => {
+  draw(3);
+  cv.toBlob(b => {
+    draw(2);
+    const url = URL.createObjectURL(b);
+    $('#out').src = url; $('#dl').href = url; $('#dlg').showModal();
+  }, 'image/png');
+});
+$$('#seatToggle button').forEach(b => b.addEventListener('click', () => {
+  state.label = b.dataset.l;
+  if (!state.touched.has('seat')) state.text.seat = defSeat(state.style);
+  sync(); refresh();
+}));
+$('#close').addEventListener('click', () => $('#dlg').close());
+
+makeQR(); sync(); refresh();
+Promise.all(['800 40px Fraunces', '500 40px Fraunces', 'italic 600 40px Fraunces', '700 40px Caveat', '500 40px Caveat', '400 40px "Space Mono"', '700 40px "Space Mono"', '40px Rye']
+  .map(f => document.fonts.load(f))).then(refresh).catch(() => {});
