@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket Mischief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Josefin+Sans:wght@400;600;700&family=Special+Elite&family=Caveat:wght@500;700&family=Fraunces:ital,wght@0,500;0,800;1,600&family=Rye&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="sheet">
+  <header class="head">
+    <div class="slide">
+      <div class="tape">
+        <p class="by"><a href="https://www.instagram.com/witty.fig" target="_blank" rel="noopener">witty.fig <i class="px"></i></a> presents</p>
+        <h1>Ticket Mischief</h1>
+      </div>
+    </div>
+    <div class="slide d2">
+      <section class="note" aria-label="How it works">
+        <p class="lead">pick a style, change anything, make it yours, and save it</p>
+      </section>
+    </div>
+  </header>
+
+  <main>
+    <div class="stage"><div class="hang" id="hang"><canvas id="cv" role="img" aria-label="Your ticket"></canvas></div></div>
+
+    <section class="panel">
+      <fieldset>
+        <legend>Pick a style</legend>
+        <div class="chips" id="styles"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="wink">Change anything ;)</legend>
+        <h3 class="sec">Words</h3>
+        <div class="fields">
+          <label>Top line<input data-f="kicker" maxlength="28"></label>
+          <label>Title<input data-f="title" maxlength="26"></label>
+          <label class="wide">Tagline<input data-f="sub" maxlength="60"></label>
+          <label>When<input data-f="date" maxlength="28"></label>
+          <label>Where<input data-f="place" maxlength="30"></label>
+          <div class="wide"><label for="seat" id="seatLabel">Seat</label><div class="chips mini" id="seatToggle"><button type="button" data-l="seat">Seat</button><button type="button" data-l="note">Note</button></div><input id="seat" data-f="seat" maxlength="24"></div>
+          <div class="wide"><label for="tag">Fun tag (the stamp on your ticket)</label><input id="tag" data-f="tag" maxlength="24"><div class="chips tags" id="tags"></div></div>
+        </div>
+        <h3 class="sec">Palette</h3>
+        <div class="swatches" id="swatches"></div>
+        <h3 class="sec">Fill</h3>
+        <div class="chips" id="fills">
+          <button type="button" data-fill="solid">Solid</button>
+          <button type="button" data-fill="fade">Fade</button>
+          <button type="button" data-fill="diagonal">Diagonal</button>
+          <button type="button" data-fill="glow">Glow</button>
+        </div>
+        <h3 class="sec">Tweak colors</h3>
+        <div class="pickers">
+          <label>Paper<input type="color" data-c="0"></label>
+          <label>Paper 2<input type="color" data-c="1"></label>
+          <label>Accent<input type="color" data-c="2"></label>
+          <label>Ink<input type="color" data-c="3"></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Save it</legend>
+        <div class="actions">
+          <button type="button" class="btn go" id="save">Save as PNG <i class="px still"></i></button>
+        </div>
+      </fieldset>
+    </section>
+  </main>
+
+  <footer class="sticky">
+    Nothing you type leaves this page.
+    <small>Made with lots of love by <a href="https://www.instagram.com/witty.fig" target="_blank" rel="noopener">witty.fig</a> <i class="px"></i></small>
+  </footer>
+</div>
+
+<dialog id="dlg">
+  <p class="dnote">Your ticket, with a see-through background. Press and hold the picture to save it, or tap download.</p>
+  <div class="check"><img id="out" alt="Your ticket as a picture"></div>
+  <div class="actions"><a class="btn go" id="dl" download="ticket-mischief.png">Download PNG</a><button type="button" class="btn" id="close">Close</button></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
