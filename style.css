@@ -97,3 +97,4 @@ dialog::backdrop{background:rgba(47,47,47,.65)}
 
 @media(max-width:600px){.sheet{padding:22px 12px 36px}.panel{padding:26px 14px 4px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}}
+.hint{margin:8px 0 0;font:400 .85rem/1.4 var(--dm);color:#5b4f4d;overflow-wrap:anywhere}
